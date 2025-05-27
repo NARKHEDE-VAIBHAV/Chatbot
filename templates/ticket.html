@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valid Ticket Found</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .ticket-container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 600px;
+            margin: auto;
+        }
+        .ticket-container h1 {
+            text-align: center;
+        }
+        .ticket-container p {
+            font-size: 18px;
+        }
+        .ticket-container img {
+            display: block;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket-container">
+        <h1>Valid Ticket Found</h1>
+        <p><strong>Ticket ID:</strong> {{ ticket_id }}</p>
+        <p><strong>Name:</strong> {{ user_info['name'] }}</p>
+        <p><strong>Number of People:</strong> {{ user_info['age'] }}</p>
+        <p><strong>Visiting Date:</strong> {{ ticket_info['visiting_date'] }}</p>
+        <img src="{{ url_for('static', filename='qr_codes/' + ticket_id + '.png') }}" alt="QR Code">
+    </div>
+</body>
+</html>

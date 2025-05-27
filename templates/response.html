@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Response</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>{{ greeting }}</h1>
+    {% if phone %}
+        <form method="post" action="{{ url_for('details') }}">
+            <input type="hidden" name="phone" value="{{ phone }}">
+            <label for="name">Name:</label>
+            <input type="text" name="name" id="name" required>
+            <label for="age">Age:</label>
+            <input type="number" name="age" id="age" required>
+            <button type="submit">Submit Details</button>
+        </form>
+        
+        {% if ticket_options %}
+            <h2>Ticket Options</h2>
+            <form method="post" action="{{ url_for('book_ticket_route') }}">
+                <input type="hidden" name="phone" value="{{ phone }}">
+                <label for="visit_date">Date of Visiting:</label>
+                <input type="date" name="visit_date" id="visit_date" required>
+                <button type="submit">Book Ticket</button>
+            </form>
+            <form method="post" action="{{ url_for('cancel_ticket_route') }}">
+                <input type="hidden" name="phone" value="{{ phone }}">
+                <button type="submit">Cancel Ticket</button>
+            </form>
+
+            {% if ticket_details %}
+                <h3>Your Current Ticket</h3>
+                <p>Ticket ID: {{ ticket_details['ticket_id'] }}</p>
+                <p>Date of Visiting: {{ ticket_details['visit_date'] }}</p>
+            {% else %}
+                <p>You have no active tickets.</p>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSMVS Fullscreen with Bot</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        #csmvs-frame {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            z-index: 0;
+        }
+        #bot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999999;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Fullscreen iframe (may not work if CSMVS blocks it) -->
+    <iframe id="csmvs-frame" src="https://gandhifoundation.org/" allowfullscreen>
+        Your browser does not support iframes.
+    </iframe>
+
+    <!-- Chatbot or bot HTML file -->
+    <div id="bot-container">
+        {% include 'bot.html' %}
+    </div>
+
+</body>
+</html>
