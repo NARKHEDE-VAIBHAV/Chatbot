@@ -9,80 +9,61 @@ import datetime
 import random
 import requests
 import qrcode
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 app = Flask(__name__)
 
-model_path = r'Chatbot/image_classifier_model.h5'
-class_indices_path = r'Chatbot/class_indices.json'
+qr_data = f"https://<url here>/ticket={ticket_id}"
+EMAIL_SENDER = "email@gmail.com"
+EMAIL_APP_PASSWORD = "<securet key from google app password>"
 
+model_path = r'image_classifier_model.h5'
+class_indices_path = r'class_indices.json'
 model = load_model(model_path)
 
 with open(class_indices_path, 'r') as f:
     class_indices = json.load(f)
-
 class_labels = {v: k for k, v in class_indices.items()}
 
 def prepare_image(img_path):
     img = Image.open(img_path)
-    img = img.resize((224, 224)) 
+    img = img.resize((224, 224))
     img_array = np.array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0) 
+    img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
-DATABASE_FILE = r'Chatbot/database.txt'
+DATABASE_FILE = r'database.txt'
 users = {}
 tickets = {}
 
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
 
-def send_whatsapp_message(phone, message, qr_path):
-    options = webdriver.ChromeOptions()
-    options.add_argument("--user-data-dir=/Local/Google/Chrome/User Data")  # Persist session
-    options.add_argument("--profile-directory=Default")  # Adjust if using a different Chrome profile
+def send_email_with_qr(recipient, ticket_id, visiting_date, name, age):
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_SENDER
+    msg['To'] = recipient
+    msg['Subject'] = f"Your Ticket ID: {ticket_id}"
 
-    driver = webdriver.Chrome(options=options)
-    driver.get("https://web.whatsapp.com")
-    
-    # Wait for WhatsApp Web to load
-    input("Scan QR code if needed and press Enter to continue...")
+    body = f"Hello {name},\n\nYour ticket for {visiting_date} has been booked for {age} person(s).\nTicket ID: {ticket_id}\n\nAttached is your QR code for verification."
+    msg.attach(MIMEText(body, 'plain'))
 
-    try:
-        search_box = driver.find_element(By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]')
-        search_box.click()
-        search_box.send_keys(phone)
-        time.sleep(2)
-        search_box.send_keys(Keys.ENTER)
+    qr_path = f"static/qr_codes/{ticket_id}.png"
+    with open(qr_path, 'rb') as attachment:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename={ticket_id}.png')
+        msg.attach(part)
 
-        time.sleep(2)
-        message_box = driver.find_element(By.XPATH, '//div[@contenteditable="true"][@data-tab="10"]')
-        message_box.click()
-        for part in message.split('\n'):
-            message_box.send_keys(part)
-            message_box.send_keys(Keys.SHIFT + Keys.ENTER)
-        message_box.send_keys(Keys.ENTER)
-
-        time.sleep(2)
-        attach_button = driver.find_element(By.XPATH, '//div[@title="Attach"]')
-        attach_button.click()
-
-        time.sleep(1)
-        image_input = driver.find_element(By.XPATH, '//input[@accept="image/*,video/mp4,video/3gpp,video/quicktime"]')
-        image_input.send_keys(os.path.abspath(qr_path))
-
-        time.sleep(3)
-        send_button = driver.find_element(By.XPATH, '//span[@data-icon="send"]')
-        send_button.click()
-
-        time.sleep(3)
-    except Exception as e:
-        print(f"Error sending WhatsApp message: {e}")
-    finally:
-        driver.quit()
-
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(EMAIL_SENDER, EMAIL_APP_PASSWORD)
+    server.send_message(msg)
+    server.quit()
 
 def load_data():
     global users, tickets
@@ -105,27 +86,22 @@ def generate_ticket_id():
     return str(random.randint(1000000000, 9999999999))
 
 def generate_qr_code(ticket_id):
-    qr_data = f"domain here/ticket={ticket_id}"
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
     qr.add_data(qr_data)
     qr.make(fit=True)
     img = qr.make_image(fill='black', back_color='white')
     qr_path = f"static/qr_codes/{ticket_id}.png"
-    os.makedirs(os.path.dirname(qr_path), exist_ok=True)  # Ensure the directory exists
+    os.makedirs(os.path.dirname(qr_path), exist_ok=True)
     img.save(qr_path)
     return qr_path
 
-def add_user(phone, name, age, visiting_date):
+def add_user(phone, name, age, visiting_date, email):
     ticket_id = generate_ticket_id()
-    users[phone] = {'name': name, 'age': age}
+    users[phone] = {'name': name, 'age': age, 'email': email}
     tickets[ticket_id] = {'phone': phone, 'visiting_date': visiting_date}
     save_data()
     qr_path = generate_qr_code(ticket_id)
+    send_email_with_qr(email, ticket_id, visiting_date, name, age)
     return ticket_id, qr_path
 
 def get_user_by_phone(phone):
@@ -154,7 +130,7 @@ def chat():
     user_data = request.json.get('user_data', {})
 
     if 'phone' not in user_data:
-        if user_message.isdigit() and len(user_message)== 10 and user_message[0] in "6789":
+        if user_message.isdigit() and len(user_message) == 10 and user_message[0] in '6789':
             phone = user_message
             user_data['phone'] = phone
             user_record = get_user_by_phone(phone)
@@ -165,12 +141,18 @@ def chat():
                 response = "I don't have your details. Please provide your name."
                 user_data['state'] = 'awaiting_name'
         else:
-            response = "Please enter a valid 10-digit phone number."
+            response = "Please enter a valid 10-digit Indian phone number."
         return jsonify({'reply': response, 'user_data': user_data})
 
     if "book a ticket" in user_message.lower():
-        response = "Enter the number of people who want to visit."
-        user_data['state'] = 'awaiting_age'
+        user_record = get_user_by_phone(user_data['phone'])
+        if user_record and user_record.get('email'):
+            user_data['email'] = user_record['email']
+            response = "Please provide number of people who are visiting."
+            user_data['state'] = 'awaiting_age'
+        else:
+            response = "Please provide your email address."
+            user_data['state'] = 'awaiting_email'
         return jsonify({'reply': response, 'user_data': user_data})
 
     elif "cancel my ticket" in user_message.lower():
@@ -186,7 +168,7 @@ def chat():
         tickets_to_view = get_tickets_by_phone(user_data['phone'])
         if tickets_to_view:
             response = "Your tickets:<br>" + "<br>".join(
-                f"Ticket ID: {tid}, Visiting Date: {info['visiting_date']}.<br><img src='static/qr_codes/{tid}.png' alt='qr' class='bot-image'>"  
+                f"Ticket ID: {tid}, Visiting Date: {info['visiting_date']}.<br><img src='static/qr_codes/{tid}.png' alt='qr' class='bot-image'>"
                 for tid, info in tickets_to_view.items()
             )
         else:
@@ -195,17 +177,26 @@ def chat():
 
     if user_data.get('state') == 'awaiting_name':
         user_data['name'] = user_message
-        response = "Please provide number of people who are visiting."
-        user_data['state'] = 'awaiting_age'
+        response = "Please provide your email address."
+        user_data['state'] = 'awaiting_email'
+        return jsonify({'reply': response, 'user_data': user_data})
+
+    if user_data.get('state') == 'awaiting_email':
+        if user_message.endswith("@gmail.com"):
+            user_data['email'] = user_message
+            response = "Please provide number of people who are visiting."
+            user_data['state'] = 'awaiting_age'
+        else:
+            response = "Please enter a valid Gmail."
         return jsonify({'reply': response, 'user_data': user_data})
 
     if user_data.get('state') == 'awaiting_age':
-        if user_message.isdigit() and 0 < int(user_message) < 11:
+        if user_message.isdigit() and 0 < int(user_message) < 150:
             user_data['age'] = int(user_message)
             response = "Please select your desired visiting date using the date picker."
             user_data['state'] = 'awaiting_date'
         else:
-            response = "Please enter valid number of people(less then 10)."
+            response = "Please enter a number."
         return jsonify({'reply': response, 'user_data': user_data})
 
     if user_data.get('state') == 'awaiting_date':
@@ -216,15 +207,8 @@ def chat():
             if any(ticket['visiting_date'] == user_data['visiting_date'] for ticket in existing_tickets.values()):
                 response = f"You already have a ticket for {visiting_date}."
             else:
-                ticket_id, qr_path = add_user(user_data['phone'], user_data['name'], user_data['age'], user_data['visiting_date'])
-                response = f"Thank you, {user_data['name']}. Your ticket has been booked! Your ticket ID is {ticket_id}.<br><img src='static/qr_codes/{ticket_id}.png' alt='qr' class='bot-image'>"
-                send_whatsapp_message(
-                user_data['phone'],
-                f"Hello {user_data['name']},\nYour ticket ID is {ticket_id}\nVisit Date: {user_data['visiting_date']}",
-                qr_path
-                )
-
-        
+                ticket_id, qr_path = add_user(user_data['phone'], user_data['name'], user_data['age'], user_data['visiting_date'], user_data['email'])
+                response = f"Thank you, {user_data['name']}. Your ticket has been booked for date {visiting_date} for total {user_data['age']}! Your ticket ID is {ticket_id}.<br><img src='static/qr_codes/{ticket_id}.png' alt='qr' class='bot-image'>"
         except ValueError:
             response = "Please enter a valid date in the format YYYY-MM-DD."
         return jsonify({'reply': response, 'user_data': user_data})
@@ -246,7 +230,7 @@ def chat():
         ticket_info = get_ticket_by_id(ticket_id)
         if ticket_info:
             user_info = get_user_by_phone(ticket_info['phone'])
-            response = f"Ticket Verified!\nName: {user_info['name']}\nNumber of People: {user_info['age']}\nVisiting Date: {ticket_info['visiting_date']}"
+            response = f"Ticket Verified!\nName: {user_info['name']}\nNumber of People: {user_info['age']}\nEmail: {user_info['email']}\nVisiting Date: {ticket_info['visiting_date']}"
         else:
             response = "Sorry, we couldn't find a valid ticket with that ID."
         user_data['state'] = None
@@ -257,7 +241,7 @@ def chat():
             'http://localhost:1000/v1/chat/completions',
             json={'messages': [{'role': 'user', 'content': user_message}]}
         )
-        lm_response.raise_for_status() 
+        lm_response.raise_for_status()
         lm_reply = lm_response.json().get('choices')[0]['message']['content']
     except requests.exceptions.RequestException as e:
         lm_reply = f"I'm having trouble connecting to the language model service. Error: {str(e)}"
@@ -295,7 +279,7 @@ def predict():
         try:
             lm_response = requests.post(
                 'http://localhost:1000/v1/chat/completions',
-                json={'messages': [{'role': 'user', 'content': f"Can you tell me about {class_label}? I have a photo of it."}]}
+                json={'messages': [{'role': 'user', 'content': f"Can you tell me about {class_label}?"}]}
             )
             lm_response.raise_for_status()  
             lm_reply = lm_response.json().get('choices')[0]['message']['content']
@@ -307,8 +291,6 @@ def predict():
             return jsonify({'message': "Sorry, no data found", 'confidence': confidence})
     else:
         return jsonify({'message': "Sorry, no data found", 'confidence': confidence})
-
-
 
 if __name__ == '__main__':
     load_data()
