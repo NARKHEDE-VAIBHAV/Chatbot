@@ -1,4 +1,4 @@
-# Ticket Booking Chatbot with Image Classifier & WhatsApp Integration
+# Ticket Booking Chatbot with Image Classifier & Email Integration
 
 This Flask-based project integrates chatbot-driven ticket booking, image classification, and WhatsApp messaging using Selenium. It includes QR code ticket generation and a chatbot interface with local LLM backend support.
 
@@ -9,7 +9,7 @@ This Flask-based project integrates chatbot-driven ticket booking, image classif
 - 🤖 Chatbot with contextual flow for booking, viewing, and cancelling tickets
 - 📅 Ticket ID generation with visiting date storage
 - 📷 Image classification using a trained Keras model
-- 📤 WhatsApp messaging (with ticket & QR code image) via Selenium
+- 📤 Email invoice (with ticket & QR code image) via SMTP
 - 🔍 Ticket verification system
 - 🧠 LLM Integration (via LM Studio or OpenAI compatible API)
 - 📄 Data stored in local JSON file for persistence
@@ -62,11 +62,9 @@ This Flask-based project integrates chatbot-driven ticket booking, image classif
 
 ---
 
-## 💬 WhatsApp Integration (Manual Login)
+## 💬 Email Integration (Manual Login)
 
-- Make sure to have Chrome installed.
-- When sending a message for the first time, scan the WhatsApp Web QR manually in the browser pop-up.
-- Session will persist using Chrome user profile (`Chrome/User Data`).
+- Need to setup smtp server first by changing the email keys in app.py.
 
 ---
 
@@ -99,6 +97,5 @@ This Flask-based project integrates chatbot-driven ticket booking, image classif
 - [Flask](https://flask.palletsprojects.com/)
 - [Selenium](https://www.selenium.dev/)
 - [LM Studio](https://lmstudio.ai)
-- [WhatsApp Web](https://web.whatsapp.com)
 
 ---
